@@ -127,6 +127,90 @@ https://127.0.0.1:8443/redfish/v1/Chassis/AST2600_EVB/Sensors?$expand=.
 
 
 
+##  詳解
+main.cpp
+```C++
+#include <boost/asio/io_context.hpp> //Boost.Asio 的事件迴圈核心物件 io_context。後面用 timer、DBus connection 都靠它跑 event loop。
+#include <boost/asio/steady_timer.hpp> //提供 steady_timer，用來做「每隔一段時間執行一次」的非同步計時器。
+#include <chrono> //提供時間型別，例如 std::chrono::seconds。
+#include <cmath> //提供 std::sin()，你用它做正弦波浮動。
+#include <cstdint> //提供固定寬度整數型別，例如 std::uint64_t。
+#include <functional> //提供 std::function，你用它把「排程下一次 timer」的 lambda 存起來遞迴呼叫。
+#include <memory> //提供 std::shared_ptr，用於 DBus connection 的生命週期管理。
+#include <sdbusplus/asio/connection.hpp> //OpenBMC 常用的 sdbusplus + Asio 整合：DBus connection 會掛在 io_context 上跑。
+#include <sdbusplus/asio/object_server.hpp> //OpenBMC 常用的 sdbusplus + Asio 整合：DBus connection 會掛在 io_context 上跑。io_context 內部維護一個 事件佇列（event queue），當有任務、計時器、或 I/O 完成事件加入時，loop 會逐一取出並執行 callback handler。
+#include <string> //association tuple 用到。
+#include <tuple> //association 的元素是三元組。
+#include <vector> //association list 是一個 vector。
+
+namespace //匿名 namespace：讓這些常數只在本檔案可見（類似 static 的效果）。
+{
+constexpr const char* kBusName = "xyz.openbmc_project.FakePowerSensor"; //kBusName = "xyz.openbmc_project.FakePowerSensor";
+constexpr const char* kObjPath = "/xyz/openbmc_project/sensors/power/FakePower0";
+constexpr const char* kIntfValue = "xyz.openbmc_project.Sensor.Value";
+constexpr const char* kIntfAssoc = "xyz.openbmc_project.Association.Definitions";
+
+constexpr const char* kInventoryAst2600Evb =
+    "/xyz/openbmc_project/inventory/system/board/AST2600_EVB";
+
+constexpr double kBaseWatts = 120.0;
+constexpr double kAmplitudeWatts = 30.0;
+constexpr std::chrono::seconds kPeriod{1};
+} // namespace
+
+int main()
+{
+    boost::asio::io_context io;
+
+    auto conn = std::make_shared<sdbusplus::asio::connection>(io);
+    conn->request_name(kBusName);
+
+    sdbusplus::asio::object_server server(conn);
+    auto intf = server.add_interface(kObjPath, kIntfValue);
+    auto assocIntf = server.add_interface(kObjPath, kIntfAssoc);
+
+    double valueWatts = kBaseWatts;
+    intf->register_property("Value", valueWatts,  //建立 DBus property Value（初始值）
+                            sdbusplus::asio::PropertyPermission::readOnly);
+
+    using AssociationList =
+        std::vector<std::tuple<std::string, std::string, std::string>>;
+    const AssociationList associations = {
+        {"chassis", "all_sensors", kInventoryAst2600Evb}};
+    assocIntf->register_property("Associations", associations,
+                                 sdbusplus::asio::PropertyPermission::readOnly);
+
+    intf->initialize();
+    assocIntf->initialize();
+
+    boost::asio::steady_timer timer(io);
+    std::uint64_t tick = 0;
+
+    std::function<void()> schedule;
+    schedule = [&]() {
+        timer.expires_after(kPeriod);
+        timer.async_wait([&](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                return;
+            }
+
+            const double phase = static_cast<double>(tick) / 10.0;
+            valueWatts = kBaseWatts + (kAmplitudeWatts * std::sin(phase));
+            intf->set_property("Value", valueWatts);
+
+            ++tick;
+            schedule();
+        });
+    };
+
+    schedule();
+    io.run();
+    return 0;
+}
+
+```
+
 
 
 
