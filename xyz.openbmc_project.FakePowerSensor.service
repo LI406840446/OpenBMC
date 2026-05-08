@@ -1,0 +1,12 @@
+[Unit]
+Description=Fake Power Sensor
+After=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fake-power-sensor
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
