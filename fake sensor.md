@@ -129,7 +129,7 @@ https://127.0.0.1:8443/redfish/v1/Chassis/AST2600_EVB/Sensors?$expand=.
 
 
 
-##  詳解
+##  嘗試建一個新的service並設一個fake sensor data傳入dubs，讓dbus/redfish command能讀取這個property value
 
 ###  Bitbake recipe (fake-power-sensor.bb)
 ```C
