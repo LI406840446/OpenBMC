@@ -27,6 +27,10 @@ sed -i 's/apt-get install[[:space:]]*/apt-get install -y /' Dockerfile
 sudo sh ./docker_install.sh
 sudo sh ./ast2600/docker_install.sh
 ```
+有看到 as2600_qemu，而且狀態是 Up
+=> container OK（這樣才算 Docker 流程真正成功）
+<img width="967" height="97" alt="image" src="https://github.com/user-attachments/assets/bbb1b46c-b4d3-4f93-beb1-5df7b0ce50f2" />
+
 ##  3.clone OpenBMC 原始碼
 ```
 git clone https://github.com/AspeedTech-BMC/openbmc.git
