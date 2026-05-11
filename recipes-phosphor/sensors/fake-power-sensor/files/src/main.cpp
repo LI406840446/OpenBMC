@@ -18,12 +18,20 @@ constexpr const char* kObjPath = "/xyz/openbmc_project/sensors/power/FakePower0"
 constexpr const char* kIntfValue = "xyz.openbmc_project.Sensor.Value"; //這個 D‑Bus interface 包含 sensor 的 Value property（bmcweb/Redfish 會讀此值來呈現 sensor reading）。
 constexpr const char* kIntfAssoc = "xyz.openbmc_project.Association.Definitions"; //這個介面通常用來建立 sensor 與 inventory 元件（例如某塊板或 chassis）之間的關聯，讓 bmcweb 能把 sensor 出現在正確的 Redfish 路徑下。
 
+constexpr const char* kIntfWarn = "xyz.openbmc_project.Sensor.Threshold.Warning";
+constexpr const char* kIntfCrit = "xyz.openbmc_project.Sensor.Threshold.Critical";
+
 constexpr const char* kInventoryAst2600Evb =
     "/xyz/openbmc_project/inventory/system/board/AST2600_EVB"; //這是一個 inventory 的 object path（代表主機板或某個 inventory node）。你把 sensor 的 association 指向這個 path，表示這個 sensor 屬於該板子。
 
 constexpr double kBaseWatts = 120.0; //模擬功耗的中心值（120W）。
 constexpr double kAmplitudeWatts = 30.0; //模擬功耗的振幅（±30W），所以值會落在 90~150W 之間擺動。
 constexpr std::chrono::seconds kPeriod{1}; //Timer 週期 1 秒。這直接決定「每秒更新」。
+
+constexpr double kWarningHigh = 140.0;
+constexpr double kWarningLow = 100.0;
+constexpr double kCriticalHigh = 148.0;
+constexpr double kCriticalLow = 95.0;
 } // namespace
 
 int main()
@@ -37,9 +45,34 @@ int main()
     auto intf = server.add_interface(kObjPath, kIntfValue); //在 object path 上加上 xyz.openbmc_project.Sensor.Value 介面。
     auto assocIntf = server.add_interface(kObjPath, kIntfAssoc); //同一個 object path 再加上 xyz.openbmc_project.Association.Definitions 介面。
 
+    auto warnIntf = server.add_interface(kObjPath, kIntfWarn);
+    auto critIntf = server.add_interface(kObjPath, kIntfCrit);
+
     double valueWatts = kBaseWatts;
     intf->register_property("Value", valueWatts,  //在 xyz.openbmc_project.Sensor.Value 上建立 DBus property：Value。readOnly 表示 DBus client 只能讀，不能寫。
                             sdbusplus::asio::PropertyPermission::readOnly);
+
+    bool warningAlarmHigh = false;
+    bool warningAlarmLow = false;
+    warnIntf->register_property("WarningHigh", kWarningHigh,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    warnIntf->register_property("WarningLow", kWarningLow,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    warnIntf->register_property("WarningAlarmHigh", warningAlarmHigh,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    warnIntf->register_property("WarningAlarmLow", warningAlarmLow,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+
+    bool criticalAlarmHigh = false;
+    bool criticalAlarmLow = false;
+    critIntf->register_property("CriticalHigh", kCriticalHigh,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    critIntf->register_property("CriticalLow", kCriticalLow,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    critIntf->register_property("CriticalAlarmHigh", criticalAlarmHigh,
+                                sdbusplus::asio::PropertyPermission::readOnly);
+    critIntf->register_property("CriticalAlarmLow", criticalAlarmLow,
+                                sdbusplus::asio::PropertyPermission::readOnly);
 
     using AssociationList =
         std::vector<std::tuple<std::string, std::string, std::string>>; //Associations 的型別是「多筆三元組」。
@@ -50,6 +83,8 @@ int main()
 
     intf->initialize(); //這兩行是把 interface 真正「註冊到 DBus」讓外界看得到。若沒呼叫 initialize，介面不會完整上線。  
     assocIntf->initialize();
+    warnIntf->initialize();
+    critIntf->initialize();
 
     boost::asio::steady_timer timer(io); //建立 timer，也綁定到同一個 event loop。
     std::uint64_t tick = 0; //計數器，用來生成不同時間點的相位（phase）。
@@ -67,6 +102,16 @@ int main()
             valueWatts = kBaseWatts + (kAmplitudeWatts * std::sin(phase)); //產生上下浮動的功耗值。
             intf->set_property("Value", valueWatts); //把新的值寫回 DBus property Value。
 
+            warningAlarmHigh = (valueWatts > kWarningHigh);
+            warningAlarmLow = (valueWatts < kWarningLow);
+            warnIntf->set_property("WarningAlarmHigh", warningAlarmHigh);
+            warnIntf->set_property("WarningAlarmLow", warningAlarmLow);
+
+            criticalAlarmHigh = (valueWatts > kCriticalHigh);
+            criticalAlarmLow = (valueWatts < kCriticalLow);
+            critIntf->set_property("CriticalAlarmHigh", criticalAlarmHigh);
+            critIntf->set_property("CriticalAlarmLow", criticalAlarmLow);
+
             ++tick;  //下一秒 phase 會不同，值就會不同。
             schedule(); //再次排程下一次 timer → 形成無限循環的每秒更新。
         });
@@ -76,5 +121,3 @@ int main()
     io.run(); //開始跑 event loop；程式在這裡阻塞並持續處理 timer/DBus 事件。
     return 0; //正常結束（通常不會走到這裡，除非 io_context 停止）。
 }
-
-```
