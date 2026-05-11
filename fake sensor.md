@@ -22,6 +22,9 @@ mkdir -p AST2600_qemu
 ##  2.安裝 Docker
 ```
 git clone https://github.com/macchen-yu/ast2600.git 
+cd ~/AST2600_qemu/ast2600
+sed -i 's/apt-get install[[:space:]]*/apt-get install -y /' Dockerfile
+sudo sh ./docker_install.sh
 sudo sh ./ast2600/docker_install.sh
 ```
 ##  3.clone OpenBMC 原始碼
