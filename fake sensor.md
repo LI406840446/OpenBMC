@@ -40,7 +40,7 @@ git clone https://github.com/AspeedTech-BMC/openbmc.git
 cd asbmc_v9.5/openbmc/
 . setup ast2600-default as26_build
 ```
-設定完會進到docker環境
+設定完會進到能build的docker環境
 <img width="330" height="126" alt="image" src="https://github.com/user-attachments/assets/5cc30ccf-ec6a-434b-9747-dd906d7c77c4" />
 
 ##  5.編譯 OpenBMC 映像檔（需要較長時間）
