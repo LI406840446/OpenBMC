@@ -72,6 +72,8 @@ file="$(pwd)/tmp/deploy/images/ast2600-default/obmc-phosphor-image-ast2600-defau
 format=raw,if=mtd -net nic -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::8443-:443
 
 **注意: obmc-phosphor-image-ast2600-default-<時間戳>.static.mtd 的名稱每次都不同，需依照實際生成的檔案名稱修改。
+確認檔案存在（先跑這行，確認檔名沒錯）
+ls -lh tmp/deploy/images/ast2600-default/obmc-phosphor-image-*.static.mtd
 ```
 ##  10.登入 OpenBMC
 ```
