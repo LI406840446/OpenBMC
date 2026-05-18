@@ -25,3 +25,6 @@ entity-manager（描述 FRU、連接、sensor mapping；有些平台用它產生
 DBus：xyz.openbmc_project.Sensor.Value
 Redfish：BMC Web/Redfish 通常再把 DBus 映射出去
 ```
+
+
+```
